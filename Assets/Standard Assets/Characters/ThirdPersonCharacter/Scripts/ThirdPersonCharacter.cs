@@ -14,6 +14,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[Range(1f, 4f)][SerializeField] float m_GravityMultiplier = 2f;
 		[SerializeField] float m_RunCycleLegOffset = 0.2f; //specific to the character in sample assets, will need to be modified to work with others
 		[SerializeField] float m_MoveSpeedMultiplier = 1f;
+		[SerializeField] float m_RunSpeedMultiplier = 2f;
 		[SerializeField] float m_AnimSpeedMultiplier = 1f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
 		[SerializeField] Transform WallDetection, LedgeDetection;
@@ -29,6 +30,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		float m_CapsuleHeight;
 		Vector3 m_CapsuleCenter;
 		CapsuleCollider m_Capsule;
+		float m_finalMoveSpeed;
 		[SerializeField] bool m_Running;
 		[SerializeField] bool m_Crouching;
 		[SerializeField] bool m_TouchingWall;
@@ -52,7 +54,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		}
 
 
-		public void Move(Vector3 move, bool crouch, bool jump)
+		public void Move(Vector3 move, bool crouch, bool jump, bool run)
 		{
 
 			// convert the world relative moveInput vector into a local-relative
@@ -71,7 +73,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			// control and velocity handling is different when grounded and airborne:
 			if (m_IsGrounded && !m_CanGrabLedge && !m_GrabbingLedge)
 			{
-				HandleGroundedMovement(crouch, jump);
+				HandleGroundedMovement(crouch, jump, run);
 				m_horizontalMovement = new Vector3(m_Rigidbody.velocity.x, 0, m_Rigidbody.velocity.z).normalized;
 
 			}
@@ -200,8 +202,12 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		}
 
 
-		void HandleGroundedMovement(bool crouch, bool jump)
+		void HandleGroundedMovement(bool crouch, bool jump, bool run)
 		{
+			// check whether the player is running
+			m_finalMoveSpeed = m_MoveSpeedMultiplier * (run ? m_RunSpeedMultiplier : 1);
+
+
 			// check whether conditions are right to allow a jump:
 			if (jump && !crouch && m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))
 			{
@@ -211,6 +217,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				m_Animator.applyRootMotion = false;
 				m_GroundCheckDistance = 0.1f;
 			}
+
 		}
 
 		void ApplyExtraTurnRotation()
@@ -227,7 +234,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			// this allows us to modify the positional speed before it's applied.
 			if (m_IsGrounded && Time.deltaTime > 0)
 			{
-				Vector3 v = (m_Animator.deltaPosition * m_MoveSpeedMultiplier) / Time.deltaTime;
+				Vector3 v = (m_Animator.deltaPosition * m_finalMoveSpeed) / Time.deltaTime;
 
 				// we preserve the existing y part of the current velocity.
 				v.y = m_Rigidbody.velocity.y;
