@@ -19,39 +19,9 @@ public class MainCharacterController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        if (!IsGrabbingLedge)
-        {
-            LedgeDetectionCheck();
-        }
-        CanClimbLedge();
+       
     }
 
-    private void LedgeDetectionCheck()
-    {
-        IsFacingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f);
-        IsFacingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f);
-
-        if (IsFacingWall && !IsFacingLedge && !IsLedgeDetected)
-        {
-            //Ledge Grab here
-            IsLedgeDetected = true;
-
-            ledgePositionBottom = WallDetection.position;
-        }
-
-        if (!IsFacingWall && !IsFacingLedge && IsLedgeDetected)
-        {
-            IsLedgeDetected = false;
-        }
-    }
-
-    private void CanClimbLedge()
-    {
-        if (IsLedgeDetected && !IsGrabbingLedge)
-        {
-            IsGrabbingLedge = true;
-        }
-    }
 
     private void OnTriggerEnter(Collider other)
     {

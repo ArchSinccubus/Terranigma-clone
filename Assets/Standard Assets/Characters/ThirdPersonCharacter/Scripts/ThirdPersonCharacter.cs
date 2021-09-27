@@ -65,7 +65,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			CheckGroundStatus();
 			move = Vector3.ProjectOnPlane(move, m_GroundNormal);
 			m_TurnAmount = Mathf.Atan2(move.x, move.z);
-			m_ForwardAmount = move.z;
+			m_ForwardAmount = move.z * (run ? m_RunSpeedMultiplier : 1);
 
 			ApplyExtraTurnRotation();
 
@@ -170,7 +170,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			// which affects the movement speed because of the root motion.
 			if (m_IsGrounded && move.magnitude > 0)
 			{
-				m_Animator.speed = m_AnimSpeedMultiplier;
+				m_Animator.speed = m_MoveSpeedMultiplier;
 			}
 			else
 			{
@@ -244,10 +244,11 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 		private void CheckLedgeDetection()
 		{
+			int layerMask = LayerMask.GetMask("Interactable");
+			layerMask = ~layerMask;
 
-
-			m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward,out m_WallInfo, Quaternion.identity, 1f);
-			m_TouchingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f);
+			m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward,out m_WallInfo, Quaternion.identity, 1f, layerMask);
+			m_TouchingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f, layerMask);
 
 			if (m_TouchingWall && !m_TouchingLedge && !m_CanGrabLedge)
 			{
