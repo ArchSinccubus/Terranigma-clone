@@ -253,17 +253,18 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			if ((m_IsGrounded || m_GrabbingLedge) && Time.deltaTime > 0)
 			{
 				Vector3 v = (m_Animator.deltaPosition * m_finalMoveSpeed) / Time.deltaTime;
+				v.y = m_Rigidbody.velocity.y;
 
 				// we preserve the existing y part of the current velocity.
 
 				if (m_GrabbingLedge)
                 {
 					m_ClimbToLocation = new Vector3(m_Rigidbody.position.x, m_Rigidbody.position.y + m_WallInfo.collider.transform.position.y, m_Rigidbody.position.z) + m_LedgeForward;
-					v = (m_Animator.deltaPosition * m_finalMoveSpeed) / Time.deltaTime;
+
+					v = Vector3.Project(v, Vector3.Cross(m_LedgeForward, Vector3.up));
 				}
 
 
-				v.y = m_Rigidbody.velocity.y;
 
 				m_Rigidbody.velocity = v;
 
