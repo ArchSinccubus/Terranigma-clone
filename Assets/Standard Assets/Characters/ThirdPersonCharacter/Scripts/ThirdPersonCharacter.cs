@@ -15,7 +15,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] float m_RunCycleLegOffset = 0.2f; //specific to the character in sample assets, will need to be modified to work with others
 		[SerializeField] float m_MoveSpeedMultiplier = 1f;
 		[SerializeField] float m_RunSpeedMultiplier = 2f;
-		[SerializeField] float m_AnimSpeedMultiplier = 1f;
+		[SerializeField] float m_LedgeMoveSpeedMultiplier = 0.5f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
 		[SerializeField] Transform WallDetection, LedgeDetection;
 
@@ -36,9 +36,10 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] bool m_TouchingWall;
 		[SerializeField] bool m_TouchingLedge;
 		[SerializeField] bool m_CanGrabLedge;
+		[SerializeField] bool m_CanClimbLedge;
 		[SerializeField] bool m_GrabbingLedge;
-		Vector3 m_horizontalMovement;
 		Vector3 m_ClimbToLocation;
+		Vector3 m_LedgeForward;
 		RaycastHit m_WallInfo;
 
 		void Start()
@@ -67,30 +68,27 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			m_TurnAmount = Mathf.Atan2(move.x, move.z);
 			m_ForwardAmount = move.z * (run ? m_RunSpeedMultiplier : 1);
 
-			ApplyExtraTurnRotation();
+            if (!m_GrabbingLedge)
+            {
+				ApplyExtraTurnRotation();
+			}
 
 
-			// control and velocity handling is different when grounded and airborne:
-			if (m_IsGrounded && !m_CanGrabLedge && !m_GrabbingLedge)
+			// control and velocity handling is different when grounded and airborne: && !m_CanGrabLedge
+			if (m_IsGrounded  && !m_GrabbingLedge)
 			{
 				HandleGroundedMovement(crouch, jump, run);
-				m_horizontalMovement = new Vector3(m_Rigidbody.velocity.x, 0, m_Rigidbody.velocity.z).normalized;
 
 			}
-			else if (!m_IsGrounded && !m_CanGrabLedge)
+			else if (!m_IsGrounded && !m_GrabbingLedge)
 			{
 				HandleAirborneMovement();
 				CheckLedgeDetection();
-				m_horizontalMovement = new Vector3(m_Rigidbody.velocity.x, 0, m_Rigidbody.velocity.z).normalized;
 
-			}
-			else if (m_CanGrabLedge && !m_GrabbingLedge)
-			{
-				HandleLedgeGrab();
 			}
 			else
 			{
-				HandleLedgeControls(jump);
+				HandleLedgeControls(move, jump, run);
 			}
 
 			ScaleCapsuleForCrouching(crouch);
@@ -180,16 +178,29 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		}
 
 
-		private void HandleLedgeControls(bool jump)
+		private void HandleLedgeControls(Vector3 move, bool jump, bool run)
 		{
-            if (jump)
+            if (!jump && !run)
+            {
+				m_finalMoveSpeed = m_MoveSpeedMultiplier * m_LedgeMoveSpeedMultiplier;
+
+			}
+
+			if (jump && m_CanClimbLedge)
             {
 				m_Rigidbody.position = m_ClimbToLocation;
 				m_Rigidbody.useGravity = true;
 				m_GrabbingLedge = false;
+				m_CanClimbLedge = false;
 				m_CanGrabLedge = false;
 				m_IsGrounded = true;
             }
+            else if (run)
+            {
+				m_GrabbingLedge = false;
+				m_CanGrabLedge = false;
+				m_Rigidbody.useGravity = true;
+			}
 		}
 
 		void HandleAirborneMovement()
@@ -232,14 +243,32 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		{
 			// we implement this function to override the default root motion.
 			// this allows us to modify the positional speed before it's applied.
-			if (m_IsGrounded && Time.deltaTime > 0)
+
+			if (m_CanGrabLedge)
+			{
+				m_Rigidbody.velocity = Vector3.zero;
+				//m_CanGrabLedge = false;
+			}
+
+			if ((m_IsGrounded || m_GrabbingLedge) && Time.deltaTime > 0)
 			{
 				Vector3 v = (m_Animator.deltaPosition * m_finalMoveSpeed) / Time.deltaTime;
 
 				// we preserve the existing y part of the current velocity.
+
+				if (m_GrabbingLedge)
+                {
+					m_ClimbToLocation = new Vector3(m_Rigidbody.position.x, m_Rigidbody.position.y + m_WallInfo.collider.transform.position.y, m_Rigidbody.position.z) + m_LedgeForward;
+					v = (m_Animator.deltaPosition * m_finalMoveSpeed) / Time.deltaTime;
+				}
+
+
 				v.y = m_Rigidbody.velocity.y;
+
 				m_Rigidbody.velocity = v;
+
 			}
+
 		}
 
 		private void CheckLedgeDetection()
@@ -249,26 +278,26 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 			m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward,out m_WallInfo, Quaternion.identity, 1f, layerMask);
 			m_TouchingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f, layerMask);
+			m_CanClimbLedge = !Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1.5f);
 
 			if (m_TouchingWall && !m_TouchingLedge && !m_CanGrabLedge)
 			{
 				//Ledge Grab here
 				m_CanGrabLedge = true;
-
-
-			}
-
-			if (!m_TouchingWall && !m_TouchingLedge && m_CanGrabLedge)
-			{
-				m_CanGrabLedge = false;
+				HandleLedgeGrab();
+				//m_CanGrabLedge = false;
 			}
 		}
 		private void HandleLedgeGrab()
 		{
+			m_LedgeForward = m_WallInfo.normal * -1;
+
+			transform.rotation = Quaternion.LookRotation(m_LedgeForward, Vector3.up);
+
 			m_Rigidbody.useGravity = false;
-			m_Rigidbody.position = m_WallInfo.point - (m_horizontalMovement * Time.deltaTime);
+			m_Rigidbody.position = new Vector3(m_WallInfo.point.x, m_WallInfo.collider.bounds.extents.y + m_WallInfo.collider.transform.position.y, m_WallInfo.point.z);
 			m_Rigidbody.velocity = Vector3.zero;
-			m_ClimbToLocation = new Vector3(m_WallInfo.point.x, m_WallInfo.collider.bounds.extents.y + m_WallInfo.collider.transform.position.y, m_WallInfo.point.z) + m_horizontalMovement;
+			m_ClimbToLocation = new Vector3(m_WallInfo.point.x, m_WallInfo.collider.bounds.extents.y + m_WallInfo.collider.transform.position.y, m_WallInfo.point.z) + m_LedgeForward;
 			Debug.DrawLine(m_ClimbToLocation, m_ClimbToLocation + Vector3.up, Color.black, 100);
 			m_GrabbingLedge = true;
 		}
