@@ -17,15 +17,15 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] float m_RunSpeedMultiplier = 2f;
 		[SerializeField] float m_LedgeMoveSpeedMultiplier = 0.5f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
-		[SerializeField] Transform WallDetection, LedgeDetection;
+		[SerializeField] Transform WallDetection, LedgeDetection, WallDetectionLeft, WallDetectionRight;
 
 		Rigidbody m_Rigidbody;
 		Animator m_Animator;
 		[SerializeField] bool m_IsGrounded;
 		float m_OrigGroundCheckDistance;
 		const float k_Half = 0.5f;
-		float m_TurnAmount;
-		float m_ForwardAmount;
+		[SerializeField] float m_TurnAmount;
+		[SerializeField] float m_ForwardAmount;
 		Vector3 m_GroundNormal;
 		float m_CapsuleHeight;
 		Vector3 m_CapsuleCenter;
@@ -38,6 +38,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] bool m_CanGrabLedge;
 		[SerializeField] bool m_CanClimbLedge;
 		[SerializeField] bool m_GrabbingLedge;
+		[SerializeField] bool m_WallCheckLeft, m_WallCheckRight;
 		Vector3 m_ClimbToLocation;
 		Vector3 m_LedgeForward;
 		RaycastHit m_WallInfo;
@@ -68,7 +69,10 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			m_TurnAmount = Mathf.Atan2(move.x, move.z);
 			m_ForwardAmount = move.z * (run ? m_RunSpeedMultiplier : 1);
 
-            if (!m_GrabbingLedge)
+			//CheckRayCollissions();
+
+
+			if (!m_GrabbingLedge)
             {
 				ApplyExtraTurnRotation();
 			}
@@ -141,12 +145,25 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 		void UpdateAnimator(Vector3 move)
 		{
+            if (m_GrabbingLedge)
+            {
+                if (m_TurnAmount < 0 && !m_WallCheckRight)
+                {
+					m_TurnAmount = 0;
+                }
+			    if (m_TurnAmount > 0 && !m_WallCheckLeft)
+				{
+					m_TurnAmount = 0;
+				}
+			}
+
 			// update the animator parameters
 			m_Animator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
 			m_Animator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
 			m_Animator.SetBool("Crouch", m_Crouching);
 			m_Animator.SetBool("OnGround", m_IsGrounded);
 			m_Animator.SetBool("GrabbingLedge", m_GrabbingLedge);
+
 			if (!m_IsGrounded)
 			{
 				m_Animator.SetFloat("Jump", m_Rigidbody.velocity.y);
@@ -272,14 +289,33 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 		}
 
-		private void CheckLedgeDetection()
+		//This method does the overall checks for any form of rays that need to be cast out of the character outward
+		public void CheckRayCollissions()
 		{
 			int layerMask = LayerMask.GetMask("Interactable");
 			layerMask = ~layerMask;
 
-			m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward,out m_WallInfo, Quaternion.identity, 1f, layerMask);
+            if (!m_GrabbingLedge)
+            {
+				m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, out m_WallInfo, Quaternion.identity, 1f, layerMask);
+
+			}
+
 			m_TouchingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f, layerMask);
+			m_WallCheckLeft = Physics.Raycast(WallDetectionLeft.position, transform.forward, 1f, layerMask);
+			m_WallCheckRight = Physics.Raycast(WallDetectionRight.position, transform.forward, 1f, layerMask);
 			m_CanClimbLedge = !Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1.5f);
+
+            if (Input.GetKeyUp(KeyCode.L))
+            {
+				Debug.DrawLine(WallDetectionLeft.position, WallDetectionLeft.position + transform.forward, Color.black, 2);
+            }
+		}
+
+
+		private void CheckLedgeDetection()
+		{
+
 
 			if (m_TouchingWall && !m_TouchingLedge && !m_CanGrabLedge)
 			{
