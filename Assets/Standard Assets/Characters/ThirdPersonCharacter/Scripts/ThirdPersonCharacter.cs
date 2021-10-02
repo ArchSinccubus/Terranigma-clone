@@ -17,7 +17,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] float m_RunSpeedMultiplier = 2f;
 		[SerializeField] float m_LedgeMoveSpeedMultiplier = 0.5f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
-		[SerializeField] Transform WallDetection, LedgeDetection, WallDetectionLeft, WallDetectionRight;
+		[SerializeField] Transform WallDetection, LedgeDetection, WallDetectionLeft, WallDetectionRight, ClimbDetection;
 
 		Rigidbody m_Rigidbody;
 		Animator m_Animator;
@@ -39,6 +39,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] bool m_CanClimbLedge;
 		[SerializeField] bool m_GrabbingLedge;
 		[SerializeField] bool m_WallCheckLeft, m_WallCheckRight;
+		[SerializeField] bool m_ClimbTrigger;
 		Vector3 m_ClimbToLocation;
 		Vector3 m_LedgeForward;
 		RaycastHit m_WallInfo;
@@ -164,6 +165,12 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			m_Animator.SetBool("OnGround", m_IsGrounded);
 			m_Animator.SetBool("GrabbingLedge", m_GrabbingLedge);
 
+            if (m_ClimbTrigger)
+            {
+				m_Animator.SetTrigger("Climbing");
+				m_ClimbTrigger = false;
+            }
+
 			if (!m_IsGrounded)
 			{
 				m_Animator.SetFloat("Jump", m_Rigidbody.velocity.y);
@@ -205,12 +212,13 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 			if (jump && m_CanClimbLedge)
             {
-				m_Rigidbody.position = m_ClimbToLocation;
-				m_Rigidbody.useGravity = true;
+				m_ClimbTrigger = true;
+				//m_Rigidbody.position = m_ClimbToLocation;
+				//m_Rigidbody.useGravity = true;
 				m_GrabbingLedge = false;
 				m_CanClimbLedge = false;
 				m_CanGrabLedge = false;
-				m_IsGrounded = true;
+				//m_IsGrounded = true;
             }
             else if (run)
             {
@@ -218,6 +226,12 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				m_CanGrabLedge = false;
 				m_Rigidbody.useGravity = true;
 			}
+		}
+
+		public void HandleLedgeExit()
+        {
+			m_Rigidbody.useGravity = true;
+			m_IsGrounded = true;
 		}
 
 		void HandleAirborneMovement()
@@ -295,16 +309,19 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			int layerMask = LayerMask.GetMask("Interactable");
 			layerMask = ~layerMask;
 
-            if (!m_GrabbingLedge)
-            {
+			if (!m_GrabbingLedge)
+			{
 				m_TouchingWall = Physics.BoxCast(WallDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, out m_WallInfo, Quaternion.identity, 1f, layerMask);
 
+			}
+			else
+			{
+				m_CanClimbLedge = !Physics.BoxCast(ClimbDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1.5f);
 			}
 
 			m_TouchingLedge = Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1f, layerMask);
 			m_WallCheckLeft = Physics.Raycast(WallDetectionLeft.position, transform.forward, 1f, layerMask);
 			m_WallCheckRight = Physics.Raycast(WallDetectionRight.position, transform.forward, 1f, layerMask);
-			m_CanClimbLedge = !Physics.BoxCast(LedgeDetection.position, new Vector3(0.2f, 0.001f, 0.001f), transform.forward, Quaternion.identity, 1.5f);
 
             if (Input.GetKeyUp(KeyCode.L))
             {
