@@ -22,6 +22,7 @@ public class ReturnValuesBehaviour : StateMachineBehaviour
     override public void OnStateExit(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
     {
         animator.gameObject.GetComponent<ThirdPersonCharacter>().HandleLedgeExit();
+        animator.gameObject.GetComponent<Rigidbody>().position += animator.transform.forward * 0.1f;
     }
 
     // OnStateMove is called right after Animator.OnAnimatorMove()

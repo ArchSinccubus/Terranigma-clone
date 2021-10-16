@@ -17,6 +17,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] float m_RunSpeedMultiplier = 2f;
 		[SerializeField] float m_LedgeMoveSpeedMultiplier = 0.5f;
 		[SerializeField] float m_GroundCheckDistance = 0.1f;
+		[SerializeField] float m_LedgePushOffset = 0.5f;
 		[SerializeField] Transform WallDetection, LedgeDetection, WallDetectionLeft, WallDetectionRight, ClimbDetection;
 
 		Rigidbody m_Rigidbody;
@@ -39,7 +40,11 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] bool m_CanClimbLedge;
 		[SerializeField] bool m_GrabbingLedge;
 		[SerializeField] bool m_WallCheckLeft, m_WallCheckRight;
-		[SerializeField] bool m_ClimbTrigger;
+		[SerializeField] bool m_ClimbingLedge;
+		[SerializeField] bool m_DroppingLedge;
+		[SerializeField] bool m_UsingStamina;
+		[SerializeField] bool m_HasStamina;
+		bool m_ClimbTrigger;
 		Vector3 m_ClimbToLocation;
 		Vector3 m_LedgeForward;
 		RaycastHit m_WallInfo;
@@ -57,12 +62,18 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		}
 
 
-		public void Move(Vector3 move, bool crouch, bool jump, bool run)
+		public void Move(Vector3 move, bool crouch, bool jump,bool drop, bool run)
 		{
 
 			// convert the world relative moveInput vector into a local-relative
 			// turn amount and forward amount required to head in the desired
 			// direction.
+
+			run = run && m_HasStamina;
+
+			m_UsingStamina = (m_Running || m_GrabbingLedge) && m_HasStamina;
+
+
 			if (move.magnitude > 1f) move.Normalize();
 			move = transform.InverseTransformDirection(move);
 			CheckGroundStatus();
@@ -70,30 +81,32 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			m_TurnAmount = Mathf.Atan2(move.x, move.z);
 			m_ForwardAmount = move.z * (run ? m_RunSpeedMultiplier : 1);
 
-			//CheckRayCollissions();
+			//CheckRayCollissions(); 
 
-
-			if (!m_GrabbingLedge)
-            {
-				ApplyExtraTurnRotation();
-			}
-
-
-			// control and velocity handling is different when grounded and airborne: && !m_CanGrabLedge
-			if (m_IsGrounded  && !m_GrabbingLedge)
+			if (!m_ClimbingLedge && !m_DroppingLedge)
 			{
-				HandleGroundedMovement(crouch, jump, run);
+				if (!m_GrabbingLedge)
+				{
+					ApplyExtraTurnRotation();
+				}
 
-			}
-			else if (!m_IsGrounded && !m_GrabbingLedge)
-			{
-				HandleAirborneMovement();
-				CheckLedgeDetection();
 
-			}
-			else
-			{
-				HandleLedgeControls(move, jump, run);
+				// control and velocity handling is different when grounded and airborne: && !m_CanGrabLedge
+				if (m_IsGrounded && !m_GrabbingLedge)
+				{
+					HandleGroundedMovement(crouch, jump, run);
+
+				}
+				else if (!m_IsGrounded && !m_GrabbingLedge)
+				{
+					HandleAirborneMovement();
+					CheckLedgeDetection();
+
+				}
+				else
+				{
+					HandleLedgeControls(move, jump, drop);
+				}
 			}
 
 			ScaleCapsuleForCrouching(crouch);
@@ -168,6 +181,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
             if (m_ClimbTrigger)
             {
 				m_Animator.SetTrigger("Climbing");
+				m_ClimbingLedge = true;
 				m_ClimbTrigger = false;
             }
 
@@ -202,9 +216,9 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		}
 
 
-		private void HandleLedgeControls(Vector3 move, bool jump, bool run)
+		private void HandleLedgeControls(Vector3 move, bool jump, bool drop)
 		{
-            if (!jump && !run)
+            if (!jump && !drop)
             {
 				m_finalMoveSpeed = m_MoveSpeedMultiplier * m_LedgeMoveSpeedMultiplier;
 
@@ -213,25 +227,39 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			if (jump && m_CanClimbLedge)
             {
 				m_ClimbTrigger = true;
-				//m_Rigidbody.position = m_ClimbToLocation;
-				//m_Rigidbody.useGravity = true;
+                m_Rigidbody.constraints = RigidbodyConstraints.FreezeAll;
 				m_GrabbingLedge = false;
 				m_CanClimbLedge = false;
 				m_CanGrabLedge = false;
 				//m_IsGrounded = true;
             }
-            else if (run)
+            if ((drop && !m_DroppingLedge) || !m_HasStamina)
             {
-				m_GrabbingLedge = false;
-				m_CanGrabLedge = false;
-				m_Rigidbody.useGravity = true;
+				//m_IsGrounded = true;
+				DropLedge();
 			}
 		}
 
 		public void HandleLedgeExit()
         {
+			m_Rigidbody.constraints = RigidbodyConstraints.FreezeRotation;
+            m_Rigidbody.useGravity = true;
+			m_ClimbingLedge = false;
+		}
+
+		private void DropLedge()
+		{
+			m_DroppingLedge = true;
+			m_GrabbingLedge = false;
+			m_CanGrabLedge = false;
 			m_Rigidbody.useGravity = true;
-			m_IsGrounded = true;
+			m_Rigidbody.position -= transform.forward * m_LedgePushOffset;
+			Invoke("RegainDropControls", 0.5f);
+		}
+
+		void RegainDropControls()
+		{
+			m_DroppingLedge = false;
 		}
 
 		void HandleAirborneMovement()
@@ -249,6 +277,9 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 			// check whether the player is running
 			m_finalMoveSpeed = m_MoveSpeedMultiplier * (run ? m_RunSpeedMultiplier : 1);
 
+
+            m_Running = run && m_Rigidbody.velocity != Vector3.zero && m_ForwardAmount > 0;
+            
 
 			// check whether conditions are right to allow a jump:
 			if (jump && !crouch && m_Animator.GetCurrentAnimatorStateInfo(0).IsName("Grounded"))
@@ -377,6 +408,16 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				m_GroundNormal = Vector3.up;
 				m_Animator.applyRootMotion = false;
 			}
+		}
+
+		public bool getUsingStamina()
+		{
+			return m_UsingStamina;
+		}
+
+		public void setRechargingStamina(bool value)
+		{
+			m_HasStamina = !value;
 		}
 	}
 }

@@ -4,11 +4,11 @@ using UnityEngine;
 
 public class MainCharacterController : MonoBehaviour
 {
-    public bool IsTouchingGround, IsFacingWall, IsFacingLedge, IsLedgeDetected, IsGrabbingLedge;
-
     public Transform WallDetection, LedgeDetection;
 
-    Vector3 ledgePositionBottom, ledgePosition1, LedgePosition2;
+    public float Stamina;
+
+    public bool isUsingStamina;
 
     // Start is called before the first frame update
     void Start()

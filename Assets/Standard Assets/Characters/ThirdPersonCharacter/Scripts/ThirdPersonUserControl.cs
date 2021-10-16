@@ -14,6 +14,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
         private bool m_Jump;                      // the world-relative desired move direction, calculated from the camForward and user input.
         private bool m_Run;
         private bool m_Crouch;
+        private bool m_drop;
 
         private void Start()
         {
@@ -42,7 +43,8 @@ namespace UnityStandardAssets.Characters.ThirdPerson
             {
                 m_Jump = CrossPlatformInputManager.GetButtonDown("Jump");
             }
-            
+
+            m_drop = CrossPlatformInputManager.GetButtonDown("Run");
             m_Run = CrossPlatformInputManager.GetButton("Run");
 
             if (!m_Run)
@@ -78,7 +80,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 #endif
 
             // pass all parameters to the character control script
-            m_Character.Move(m_Move, m_Crouch, m_Jump, m_Run);
+            m_Character.Move(m_Move, m_Crouch, m_Jump, m_drop, m_Run);
             m_Jump = false;
         }
     }
