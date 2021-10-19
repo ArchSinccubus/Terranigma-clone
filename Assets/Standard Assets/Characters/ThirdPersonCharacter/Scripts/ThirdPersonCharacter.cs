@@ -44,6 +44,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		[SerializeField] bool m_DroppingLedge;
 		[SerializeField] bool m_UsingStamina;
 		[SerializeField] bool m_HasStamina;
+		[SerializeField] bool m_FallingLedge;
 		bool m_ClimbTrigger;
 		Vector3 m_ClimbToLocation;
 		Vector3 m_LedgeForward;
@@ -171,19 +172,29 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 				}
 			}
 
-			// update the animator parameters
-			m_Animator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
-			m_Animator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
-			m_Animator.SetBool("Crouch", m_Crouching);
-			m_Animator.SetBool("OnGround", m_IsGrounded);
-			m_Animator.SetBool("GrabbingLedge", m_GrabbingLedge);
-
-            if (m_ClimbTrigger)
-            {
+			if (m_ClimbTrigger)
+			{
 				m_Animator.SetTrigger("Climbing");
 				m_ClimbingLedge = true;
 				m_ClimbTrigger = false;
+			}
+
+            if (m_FallingLedge)
+            {
+				m_Animator.SetTrigger("Falling");
+				m_FallingLedge = false;
             }
+
+			else
+			{
+				// update the animator parameters
+				m_Animator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);
+				m_Animator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);
+				m_Animator.SetBool("Crouch", m_Crouching);
+				m_Animator.SetBool("OnGround", m_IsGrounded);
+				m_Animator.SetBool("GrabbingLedge", m_GrabbingLedge);
+			}
+
 
 			if (!m_IsGrounded)
 			{
@@ -249,6 +260,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 		private void DropLedge()
 		{
+			m_FallingLedge = true;
 			m_DroppingLedge = true;
 			m_GrabbingLedge = false;
 			m_CanGrabLedge = false;
@@ -332,6 +344,12 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 
 			}
 
+            if (m_ClimbingLedge && !m_HasStamina)
+            {
+				DropLedge();
+
+			}
+
 		}
 
 		//This method does the overall checks for any form of rays that need to be cast out of the character outward
@@ -365,7 +383,7 @@ namespace UnityStandardAssets.Characters.ThirdPerson
 		{
 
 
-			if (m_TouchingWall && !m_TouchingLedge && !m_CanGrabLedge)
+			if (m_TouchingWall && !m_TouchingLedge && !m_CanGrabLedge && m_HasStamina)
 			{
 				//Ledge Grab here
 				m_CanGrabLedge = true;
