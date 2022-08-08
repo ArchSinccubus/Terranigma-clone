@@ -22,6 +22,7 @@ public class StaminaController : MonoBehaviour
     public bool rechargingStamina;
 
     public Slider StaminaBar;
+    public Image FillImage;
 
     // Start is called before the first frame update
     void Start()
@@ -46,6 +47,7 @@ public class StaminaController : MonoBehaviour
                 usingStamina = false;
                 RunOutOfStamina = true;
                 rechargingStamina = true;
+                
             }
         }
         else rechargingStamina = true;
